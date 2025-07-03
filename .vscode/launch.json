@@ -1,0 +1,39 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Launch SvelteKit Client (Chrome)",
+        "request": "launch",
+        "type": "pwa-chrome",
+        "url": "http://localhost:5173",
+        "webRoot": "${workspaceFolder}",
+        "sourceMaps": true,
+        "preLaunchTask": "npm: dev" 
+      },
+      {
+        "name": "Attach SvelteKit Server (Node.js)",
+        "request": "attach",
+        "type": "node",
+        "processId": "${command:PickProcess}",
+        "skipFiles": ["<node_internals>/**"],
+        "sourceMaps": true,
+        "restart": true, 
+        "outFiles": [
+          "${workspaceFolder}/.svelte-kit/**/*.js",
+          "${workspaceFolder}/build/**/*.js"
+        ]
+      },
+      {
+        "name": "Launch SvelteKit Dev Server (Node.js Terminal)",
+        "request": "launch",
+        "type": "node-terminal",
+        "command": "npm run dev",
+        "console": "integratedTerminal",
+        "serverReadyAction": {
+          "pattern": "Local:\\s*(https?://\\S+)",
+          "uriFormat": "%s",
+          "action": "openExternally"
+        }
+      }
+    ]
+  }
