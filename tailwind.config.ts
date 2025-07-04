@@ -1,5 +1,6 @@
 // tailwind.config.ts
 import type { Config } from 'tailwindcss';
+import defaultTheme from 'tailwindcss/defaultTheme'; // Make sure this is imported if used for font fallbacks
 
 const designTokens = {
   colors: {

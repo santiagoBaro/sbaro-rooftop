@@ -1,126 +1,20 @@
 <script lang="ts">
-  import { connect, disconnect, getAccount, watchAccount } from 'wagmi/actions';
-  import { sepolia } from 'wagmi/chains';
-  import { injected } from 'wagmi/connectors';
   import { onMount } from 'svelte';
-  import { config } from '$lib/web3';
-  import { fade } from 'svelte/transition';
+  import { sepolia } from 'wagmi/chains';
   import type { Address } from 'viem';
-  // Import 'Abi' type from viem for strong typing
-  import type { Abi } from 'viem';
+  import { fade } from 'svelte/transition';
   import { browser as isClient } from '$app/environment';
-  import { USDT_SEPOLIA_ADDRESS, ERC20_ABI } from '$lib/constants';
-  import { readContract } from 'wagmi/actions';
 
-  // State variables
-  let accountAddress: Address | undefined;
-  let usdtBalance: string | undefined;
-  let isConnected: boolean = false;
-  let isLoadingBalance: boolean = false;
-  let error: string | undefined;
+  // Import stores - THESE REMAIN UNCHANGED
+  import { walletStore } from '$lib/stores/wallet';
+  import { usdtBalanceStore } from '$lib/stores/usdt';
 
-  // --- Type Assertion for ABI ---
-  // If ERC20_ABI is imported as a plain JS object/array, TypeScript might
-  // treat its elements loosely. To ensure correct type inference for
-  // contract calls, assert it as 'const' or explicitly type it.
-  // Assuming ERC20_ABI from $lib/constants is a standard JSON array,
-  // you might re-export it with 'as const' or assert it here.
-  // For example, if $lib/constants looks like:
-  // export const ERC20_ABI = [ { /* ... */ } ];
-  // You might change it to:
-  // export const ERC20_ABI = [ { /* ... */ } ] as const;
-  // Or assert it here if that's not feasible:
-  const typedERC20Abi = ERC20_ABI as Abi; // Using Viem's Abi type for clarity
+  // Svelte reactivity: subscribe to stores using the '$' prefix - THESE REMAIN UNCHANGED
+  $: ({ address: accountAddress, isConnected, chainId, error: walletError, isConnecting } = $walletStore);
+  $: ({ balance: usdtBalance, isLoading: isLoadingBalance, error: usdtFetchError } = $usdtBalanceStore);
 
-
-  /**
-   * Connects the user's wallet using the injected connector.
-   */
-  async function connectWallet(): Promise<void> {
-      try {
-          error = undefined;
-          const { accounts } = await connect(config, { connector: injected(), chainId: sepolia.id});
-          accountAddress = accounts[0];
-          isConnected = true;
-      } catch (err: any) {
-          error = `Failed to connect: ${err.shortMessage || err.message}`;
-          console.error('Connection error:', err);
-      }
-  }
-
-  /**
-   * Disconnects the user's wallet.
-   */
-  async function disconnectWallet(): Promise<void> {
-      try {
-          error = undefined;
-          await disconnect(config);
-          accountAddress = undefined;
-          usdtBalance = undefined;
-          isConnected = false;
-      } catch (err: any) {
-          error = `Failed to disconnect: ${err.shortMessage || err.message}`;
-          console.error('Disconnection error:', err);
-      }
-  }
-
-  /**
-   * Fetches the USDT balance for the connected account using the ERC20 ABI.
-   */
-  async function fetchUsdtBalance(): Promise<void> {
-    if (!accountAddress) return;
-
-    isLoadingBalance = true;
-    error = undefined;
-    usdtBalance = undefined;
-
-    try {
-        // Explicitly type the result of readContract for 'balanceOf'
-        const rawBalance = await readContract(config, {
-            address: USDT_SEPOLIA_ADDRESS,
-            abi: typedERC20Abi, // Use the typed ABI here
-            functionName: 'balanceOf',
-            args: [accountAddress],
-            chainId: sepolia.id,
-        }) as bigint; // We expect balanceOf to return a bigint
-
-        // Explicitly type the result of readContract for 'decimals'
-        const decimals = await readContract(config, {
-            address: USDT_SEPOLIA_ADDRESS,
-            abi: typedERC20Abi, // Use the typed ABI here
-            functionName: 'decimals',
-            chainId: sepolia.id,
-        }) as number; // We expect decimals to return a number
-
-        // Explicitly type the result of readContract for 'symbol'
-        const symbol = await readContract(config, {
-            address: USDT_SEPOLIA_ADDRESS,
-            abi: typedERC20Abi, // Use the typed ABI here
-            functionName: 'symbol',
-            chainId: sepolia.id,
-        }) as string; // We expect symbol to return a string
-
-        // Formato del balance
-        const divisor = 10n ** BigInt(decimals); // Use 'n' for BigInt literal, BigInt(decimals) ensures it's a BigInt
-        const formattedBalance = (Number(rawBalance) / Number(divisor)).toFixed(decimals);
-
-        usdtBalance = `${formattedBalance} ${symbol}`;
-
-    } catch (err: any) {
-        console.error('Full Balance fetch error object:', err);
-
-        if (err.cause?.name === 'ContractFunctionExecutionError' && err.cause.shortMessage.includes('token does not exist')) {
-            error = 'USDT token contract or function not found on the current network for this address.';
-        } else if (err.name === 'ChainMismatchError' || err.message.includes('sepolia')) {
-            error = `1 Please switch your wallet to the ${sepolia.name} network. ${err.message}`;
-        } else {
-            error = `Failed to fetch USDT balance: ${err.shortMessage || err.message || 'Unknown error'}`;
-        }
-        console.error('Balance fetch error:', err);
-    } finally {
-        isLoadingBalance = false;
-    }
-  }
+  // Derive an overall error for display - THIS REMAINS UNCHANGED
+  $: overallError = walletError || usdtFetchError;
 
   /**
    * Shortens an Ethereum address for display.
@@ -128,51 +22,31 @@
    * @returns A shortened string representation of the address.
    */
   function shortenAddress(address: Address | undefined): string {
-      if (!address) return '';
-      return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+    if (!address) return '';
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   }
 
-  // Svelte lifecycle hook: Runs after the component is first rendered to the DOM.
-  onMount(() => {
-    const unwatch = watchAccount(config, {
-        onChange(account) {
-            accountAddress = account.address;
-            isConnected = account.isConnected;
-
-            if (account.isConnected && account.address && account.chain?.id === sepolia.id) {
-                error = undefined;
-                fetchUsdtBalance();
-            } else {
-                usdtBalance = undefined;
-                if (account.isConnected && account.chain?.id !== sepolia.id) {
-                    error = `Please switch your wallet to the ${sepolia.name} network.`;
-                } else if (!account.isConnected) {
-                    error = undefined;
-                }
-            }
-        },
-    });
-
-    // Initial check on mount
-    const account = getAccount(config);
-    accountAddress = account.address;
-    isConnected = account.isConnected;
-
-    if (account.isConnected && account.address && account.chain?.id === sepolia.id) {
-        fetchUsdtBalance();
-    } else if (account.isConnected && account.chain?.id !== sepolia.id) {
-        error = `Please switch your wallet to the ${sepolia.name} network.`;
+  // --- Reactive statements for triggering data fetches and state updates --- - THESE REMAIN UNCHANGED
+  $: {
+    // Only attempt to fetch USDT balance if wallet is connected to Sepolia
+    if (isConnected && accountAddress && chainId === sepolia.id) {
+      usdtBalanceStore.fetchBalance(accountAddress);
+    } else {
+      // If conditions are not met, reset the USDT balance store
+      usdtBalanceStore.reset();
     }
+  }
 
-    return () => unwatch();
+  // Lifecycle hook: Initialize wallet store on component mount - THIS REMAINS UNCHANGED
+  onMount(() => {
+    walletStore.init();
   });
-
 </script>
 
 {#if !isClient}
   <div class="min-h-screen bg-white text-gray-900 font-poppins p-4 sm:p-8">
       <header class="mb-8">
-          <div class="text-xl font-bold">Logo</div>
+          <div class="text-xl font-bold">Logo</div> 
       </header>
 
       <main class="flex flex-col lg:flex-col lg:justify-between lg:items-start lg:gap-16">
@@ -235,9 +109,10 @@
                   <div class="max-w-card-max-width h-button-height"></div>
                   <button
                       class="w-full max-w-card-max-width h-button-height bg-primary-button text-white py-4 rounded-xl text-button font-medium leading-tight hover:bg-indigo-800 transition duration-300 transform hover:scale-105"
-                      on:click={connectWallet}
+                      on:click={walletStore.connect}
+                      disabled={isConnecting}
                   >
-                      Connect your wallet
+                      {#if isConnecting}Connecting...{:else}Connect your wallet{/if}
                   </button>
               {:else}
                   <div class="flex flex-col items-center lg:items-start w-full">
@@ -257,21 +132,21 @@
 
                       <button
                           class="w-full max-w-card-max-width h-button-height bg-primary-button text-white py-4 rounded-xl text-button font-medium leading-tight hover:bg-indigo-800 transition duration-300 transform hover:scale-105"
-                          on:click={disconnectWallet}
+                          on:click={walletStore.disconnect}
                       >
                           {shortenAddress(accountAddress)}
                       </button>
                   </div>
               {/if}
 
-              {#if error}
+              {#if overallError}
                   <div
                       class="mt-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative max-w-card-max-width"
                       role="alert"
                       transition:fade={{ duration: 200 }}
                   >
                       <strong class="font-bold">Error:</strong>
-                      <span class="block sm:inline">{error}</span>
+                      <span class="block sm:inline">{overallError}</span>
                   </div>
               {/if}
           </section>
