@@ -3,17 +3,15 @@ import { writable, get } from 'svelte/store';
 import { readContract } from 'wagmi/actions';
 import { sepolia } from 'wagmi/chains';
 import type { Address, Abi } from 'viem';
-import { config } from '$lib/web3'; // Your wagmi config
+import { config } from '$lib/web3';
 import { USDT_SEPOLIA_ADDRESS, ERC20_ABI } from '$lib/constants';
 
-// For strong typing the ABI (ensure ERC20_ABI in constants.ts has 'as const')
-// This cast is safe because we've added 'as const' to ERC20_ABI
 const typedERC20Abi = ERC20_ABI as Abi;
 
 export type USDTBalanceState = {
   balance: string | undefined;
   isLoading: boolean;
-  error: string | undefined; // For USDT specific fetching errors
+  error: string | undefined;
 };
 
 const initialUSDTState: USDTBalanceState = {
@@ -27,37 +25,35 @@ const { subscribe: usdtSubscribe, set: setUsdt, update: updateUsdt } = writable<
 export const usdtBalanceStore = {
   subscribe: usdtSubscribe,
   async fetchBalance(accountAddress: Address): Promise<void> {
-    // Prevent fetching if already loading or no address provided
     if (get(usdtBalanceStore).isLoading || !accountAddress) return;
 
     updateUsdt(state => ({ ...state, isLoading: true, error: undefined }));
     try {
-      // Ensure config is passed to readContract
       const rawBalance = await readContract(config, {
         address: USDT_SEPOLIA_ADDRESS,
         abi: typedERC20Abi,
         functionName: 'balanceOf',
         args: [accountAddress],
         chainId: sepolia.id,
-      }) as bigint; // We expect balanceOf to return a bigint
+      }) as bigint;
 
       const decimals = await readContract(config, {
         address: USDT_SEPOLIA_ADDRESS,
         abi: typedERC20Abi,
         functionName: 'decimals',
         chainId: sepolia.id,
-      }) as number; // We expect decimals to return a number
+      }) as number;
 
       const symbol = await readContract(config, {
         address: USDT_SEPOLIA_ADDRESS,
         abi: typedERC20Abi,
         functionName: 'symbol',
         chainId: sepolia.id,
-      }) as string; // We expect symbol to return a string
+      }) as string; 
 
       const divisor = 10n ** BigInt(decimals);
-      // Using toFixed() is okay for display, but be mindful of floating point precision for calculations.
-      const formattedBalance = (Number(rawBalance) / Number(divisor)).toFixed(decimals);
+      const formattedBalance = Math.floor(Number(rawBalance) / Number(divisor)).toString();
+
 
       setUsdt({
         balance: `${formattedBalance} ${symbol}`,

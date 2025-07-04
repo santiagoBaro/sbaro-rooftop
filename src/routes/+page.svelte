@@ -4,16 +4,11 @@
   import type { Address } from 'viem';
   import { fade } from 'svelte/transition';
   import { browser as isClient } from '$app/environment';
-
-  // Import stores - THESE REMAIN UNCHANGED
   import { walletStore } from '$lib/stores/wallet';
   import { usdtBalanceStore } from '$lib/stores/usdt';
 
-  // Svelte reactivity: subscribe to stores using the '$' prefix - THESE REMAIN UNCHANGED
   $: ({ address: accountAddress, isConnected, chainId, error: walletError, isConnecting } = $walletStore);
   $: ({ balance: usdtBalance, isLoading: isLoadingBalance, error: usdtFetchError } = $usdtBalanceStore);
-
-  // Derive an overall error for display - THIS REMAINS UNCHANGED
   $: overallError = walletError || usdtFetchError;
 
   /**
@@ -26,18 +21,14 @@
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   }
 
-  // --- Reactive statements for triggering data fetches and state updates --- - THESE REMAIN UNCHANGED
   $: {
-    // Only attempt to fetch USDT balance if wallet is connected to Sepolia
     if (isConnected && accountAddress && chainId === sepolia.id) {
       usdtBalanceStore.fetchBalance(accountAddress);
     } else {
-      // If conditions are not met, reset the USDT balance store
       usdtBalanceStore.reset();
     }
   }
 
-  // Lifecycle hook: Initialize wallet store on component mount - THIS REMAINS UNCHANGED
   onMount(() => {
     walletStore.init();
   });

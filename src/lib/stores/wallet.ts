@@ -4,14 +4,14 @@ import { connect as wagmiConnect, disconnect as wagmiDisconnect, getAccount, wat
 import { sepolia } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
 import type { Address } from 'viem';
-import { config } from '$lib/web3'; // Your wagmi config
+import { config } from '$lib/web3'; 
 
 export type WalletState = {
   address: Address | undefined;
   isConnected: boolean;
   chainId: number | undefined;
-  isConnecting: boolean; // For tracking pending connection requests
-  error: string | undefined; // For wallet connection/disconnection errors
+  isConnecting: boolean; 
+  error: string | undefined; 
 };
 
 const initialWalletState: WalletState = {
@@ -24,19 +24,16 @@ const initialWalletState: WalletState = {
 
 const { subscribe, set, update } = writable<WalletState>(initialWalletState);
 
-// Wallet Store object
 export const walletStore = {
   subscribe,
-  // Pass the wagmi config here to avoid circular dependencies if config also needs stores later
   init: () => {
-    // Initial check on load
     const account = getAccount(config);
     set({
       address: account.address,
       isConnected: account.isConnected,
       chainId: account.chain?.id,
       isConnecting: account.isReconnecting || account.isConnecting,
-      error: undefined, // Clear any previous errors on init
+      error: undefined,
     });
 
     // Watch for account changes
@@ -48,21 +45,18 @@ export const walletStore = {
           isConnected: account.isConnected,
           chainId: account.chain?.id,
           isConnecting: account.isReconnecting || account.isConnecting,
-          error: undefined, // Clear error on change, new errors will be set by specific actions
+          error: undefined,
         }));
       },
     });
 
-    // Return the unwatch function for cleanup
     return unwatch;
   },
   async connect(): Promise<void> {
-    // Only attempt connection if not already connecting
     if (get(walletStore).isConnecting) return;
 
     update(state => ({ ...state, isConnecting: true, error: undefined }));
     try {
-      // Pass the config to wagmiConnect action
       const { accounts, chainId } = await wagmiConnect(config, { connector: injected(), chainId: sepolia.id });
       set({
         address: accounts[0],
@@ -80,15 +74,13 @@ export const walletStore = {
   async disconnect(): Promise<void> {
     update(state => ({ ...state, error: undefined }));
     try {
-      // Pass the config to wagmiDisconnect action
       await wagmiDisconnect(config);
-      set(initialWalletState); // Reset to initial state on disconnect
+      set(initialWalletState);
     } catch (err: any) {
       const errorMessage = `Failed to disconnect: ${err.shortMessage || err.message}`;
       console.error('Wallet disconnection error:', err);
       update(state => ({ ...state, error: errorMessage }));
     }
   },
-  // Expose the Wagmi config if other stores or components need it
   config: config
 };
