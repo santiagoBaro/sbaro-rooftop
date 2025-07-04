@@ -1,6 +1,6 @@
 # SBaro Rooftop - USDT Sepolia Balance Checker
 
-This project is a SvelteKit application designed to check your USDT balance on the Sepolia testnet. It integrates with your browser-based wallet (like MetaMask) to connect to the blockchain and display your token holdings.
+This project is a SvelteKit application designed to check your USDT balance on the Sepolia testnet. It integrates with your browser-based wallet (MetaMask) to connect to the blockchain and display your token holdings.
 
 ---
 
@@ -14,14 +14,12 @@ First, you'll need **Node.js** and **npm** (or pnpm/yarn) installed on your syst
 
 1.  **Clone the repository:**
     ```bash
-    git clone [your-repository-url]
-    cd sbaro-rooftop # or whatever your project directory is called
+    git clone https://github.com/santiagoBaro/sbaro-rooftop
+    cd sbaro-rooftop
     ```
 2.  **Install project dependencies:**
     ```bash
     npm install
-    # or pnpm install
-    # or yarn install
     ```
 
 ### 2. Set Up MetaMask
